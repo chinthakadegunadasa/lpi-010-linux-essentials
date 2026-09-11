@@ -1,4 +1,4 @@
-name: Compile Chapters & Deploy to GitHub Pages
+name: Compile Handbooks, Validate Simulator & Deploy to GitHub Pages
 
 on:
   push:
@@ -6,13 +6,11 @@ on:
       - main
   workflow_dispatch:
 
-# Set repository permissions for GitHub Pages deployment
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment
 concurrency:
   group: "pages"
   cancel-in-progress: true
@@ -44,7 +42,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Build Toolchain & Hyphenation Engines
+      - name: Install Pandoc, LibreOffice & Hyphenation Engines
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -64,17 +62,17 @@ jobs:
           if [ -f "$SRC" ]; then
             echo "Processing $SRC -> $OUT..."
             
-            # 1. Convert Markdown source into ODT format via Pandoc
+            # 1. Convert Markdown source to intermediate ODT
             pandoc "$SRC" -o output.odt
             
-            # 2. Inject Automatic Hyphenation properties into ODT styles XML
+            # 2. Inject XML properties for dynamic word hyphenation
             mkdir odt_tmp
             unzip -q output.odt -d odt_tmp
             sed -i 's/<style:paragraph-properties/<style:paragraph-properties fo:hyphenate="true"/g' odt_tmp/styles.xml
             sed -i 's/<style:paragraph-properties/<style:paragraph-properties fo:hyphenate="true"/g' odt_tmp/content.xml
             (cd odt_tmp && zip -q -r ../hyphenated.odt *)
             
-            # 3. Render final PDF via headless LibreOffice Writer
+            # 3. Render PDF via headless LibreOffice
             libreoffice --headless --convert-to pdf hyphenated.odt --outdir .
             mv hyphenated.pdf "$OUT"
           else
@@ -89,10 +87,33 @@ jobs:
           retention-days: 1
 
   # ------------------------------------------------------------------
-  # STAGE 2: Consolidate Artifacts & Deploy to GitHub Pages
+  # STAGE 2: Validate Python Simulator
+  # ------------------------------------------------------------------
+  validate-simulator:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate Python Syntax & Script Integrity
+        run: |
+          if [ -f "exam_simulator.py" ]; then
+            python3 -m py_compile exam_simulator.py
+            echo "exam_simulator.py compiled successfully with zero syntax errors."
+          else
+            echo "Warning: exam_simulator.py not found in repo root!"
+          fi
+
+  # ------------------------------------------------------------------
+  # STAGE 3: Consolidate Artifacts & Deploy to GitHub Pages
   # ------------------------------------------------------------------
   deploy-pages:
-    needs: build-pdfs
+    needs: [build-pdfs, validate-simulator]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -107,7 +128,14 @@ jobs:
           path: _site
           merge-multiple: true
 
-      - name: Generate HTML Index Page
+      - name: Bundle Exam Simulator Script
+        run: |
+          if [ -f "exam_simulator.py" ]; then
+            cp exam_simulator.py _site/
+            chmod +x _site/exam_simulator.py
+          fi
+
+      - name: Generate Index Page & Dashboard
         run: |
           cd _site
           cat << 'EOF' > index.html
@@ -116,30 +144,41 @@ jobs:
           <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Enterprise Linux Course Documentation</title>
+              <title>Enterprise Linux Training & Exam Portal</title>
               <style>
-                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #333; }
-                  h1 { border-bottom: 2px solid #eaecef; padding-bottom: 10px; }
+                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; max-width: 850px; margin: 40px auto; padding: 0 20px; color: #24292e; }
+                  h1, h2 { border-bottom: 1px solid #e1e4e8; padding-bottom: 10px; }
                   ul { list-style-type: none; padding: 0; }
-                  li { margin: 12px 0; background: #f6f8fa; padding: 12px 16px; border-radius: 6px; border: 1px solid #e1e4e8; }
+                  li { margin: 10px 0; background: #f6f8fa; padding: 12px 16px; border-radius: 6px; border: 1px solid #e1e4e8; display: flex; justify-content: space-between; align-items: center; }
                   a { color: #0366d6; text-decoration: none; font-weight: 600; }
                   a:hover { text-decoration: underline; }
+                  .code-block { background: #24292e; color: #f6f8fa; padding: 14px; border-radius: 6px; font-family: monospace; overflow-x: auto; }
+                  .btn { background-color: #2ea44f; color: white !important; padding: 6px 12px; border-radius: 6px; font-size: 14px; }
               </style>
           </head>
           <body>
-              <h1>Enterprise Linux Training Modules</h1>
-              <p>Download or view the compiled PDF chapters below:</p>
+              <h1>Enterprise Linux Documentation & Certification Portal</h1>
+              
+              <h2>📘 Chapter Course Modules (PDF)</h2>
               <ul>
           EOF
 
           for pdf in *.pdf; do
               if [ -f "$pdf" ]; then
-                  echo "        <li>📄 <a href=\"$pdf\" target=\"_blank\">$pdf</a></li>" >> index.html
+                  echo "        <li><span>📄 <strong>$pdf</strong></span> <a href=\"$pdf\" target=\"_blank\">Download PDF</a></li>" >> index.html
               fi
           done
 
           cat << 'EOF' >> index.html
               </ul>
+
+              <h2>🧪 Terminal Hands-On Exam Simulator</h2>
+              <p>Run the practice exam locally on Debian or any terminal using Python 3:</p>
+              <div class="code-block">
+                  curl -sSL -O https://$(echo $GITHUB_REPOSITORY | cut -d'/' -f1).github.io/$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)/exam_simulator.py<br>
+                  python3 exam_simulator.py
+              </div>
+              <p><a href="exam_simulator.py" class="btn" download>Download exam_simulator.py directly</a></p>
           </body>
           </html>
           EOF
