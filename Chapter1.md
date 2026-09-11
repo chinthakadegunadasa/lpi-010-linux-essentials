@@ -16,13 +16,13 @@ In 1991, Linus Torvalds, a computer science student at the University of Helsink
 └──────────────────────────────┬──────────────────────────────┘
                                │ System Calls (POSIX)
 ┌──────────────────────────────▼──────────────────────────────┐
-│                    The Linux Kernel                         │
-│   (Process Scheduler, Memory Management, Drivers, Networking)  │
+│                    The Linux Kernel             xx                  │
+│   (Process Scheduler, Memory Management, Drivers, Networking)       │
 └──────────────────────────────┬──────────────────────────────┘
                                │ Hardware Control
 ┌──────────────────────────────▼──────────────────────────────┐
-│                    Physical Hardware                        │
-│                (CPU, RAM, Disks, NICs)                      │
+│                    Physical Hardware                                │
+│                (CPU, RAM, Disks, NICs)                              │
 └─────────────────────────────────────────────────────────────┘
 
 ```
