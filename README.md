@@ -1,0 +1,1 @@
+# lpi-010-linux-essentials
