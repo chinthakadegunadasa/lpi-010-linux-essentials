@@ -9,7 +9,7 @@ In this chapter, you will learn the core mechanics of command parsing, how to lo
 ## 2.1 Command Line Basics & Variable Manipulation
 
 ### Shell Architecture & Command Parsing
-When you type a command into a Linux terminal, the **shell** (typically `bash` on Debian systems) reads, parses, and executes the input. Every command follow a standard anatomy:
+When you type a command into a Linux terminal, the **shell** (typically `bash` on Debian systems) reads, parses, and executes the input. Every command follows a standard anatomy:
 
 $$\text{Command} \quad [\text{Options}] \quad [\text{Arguments}]$$
 
