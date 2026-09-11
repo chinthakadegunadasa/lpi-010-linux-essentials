@@ -1,0 +1,154 @@
+name: Compile Chapters & Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Set repository permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  # ------------------------------------------------------------------
+  # STAGE 1: Parallel Matrix PDF Generation
+  # ------------------------------------------------------------------
+  build-pdfs:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - src: "Chapter1.md"
+            out: "Chapter_1_Introduction_to_Enterprise_Linux.pdf"
+          - src: "Chapter2.md"
+            out: "Chapter_2_Navigating_the_Linux_File_System.pdf"
+          - src: "Chapter3.md"
+            out: "Chapter_3_The_Power_of_the_Command_Line.pdf"
+          - src: "Chapter4.md"
+            out: "Chapter_4_The_Linux_Operating_System_Architecture.pdf"
+          - src: "Chapter5.md"
+            out: "Chapter_5_Security_and_File_Permissions.pdf"
+          - src: "Chapter6.md"
+            out: "Chapter_6_Software_Package_Management.pdf"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Build Toolchain & Hyphenation Engines
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pandoc \
+            libreoffice-writer \
+            libreoffice-java-common \
+            hyphen-en-us \
+            fonts-liberation \
+            unzip \
+            zip
+
+      - name: Compile Markdown to Hyphenated PDF
+        run: |
+          SRC="${{ matrix.src }}"
+          OUT="${{ matrix.out }}"
+          
+          if [ -f "$SRC" ]; then
+            echo "Processing $SRC -> $OUT..."
+            
+            # 1. Convert Markdown source into ODT format via Pandoc
+            pandoc "$SRC" -o output.odt
+            
+            # 2. Inject Automatic Hyphenation properties into ODT styles XML
+            mkdir odt_tmp
+            unzip -q output.odt -d odt_tmp
+            sed -i 's/<style:paragraph-properties/<style:paragraph-properties fo:hyphenate="true"/g' odt_tmp/styles.xml
+            sed -i 's/<style:paragraph-properties/<style:paragraph-properties fo:hyphenate="true"/g' odt_tmp/content.xml
+            (cd odt_tmp && zip -q -r ../hyphenated.odt *)
+            
+            # 3. Render final PDF via headless LibreOffice Writer
+            libreoffice --headless --convert-to pdf hyphenated.odt --outdir .
+            mv hyphenated.pdf "$OUT"
+          else
+            echo "Error: Source file $SRC not found!" && exit 1
+          fi
+
+      - name: Upload PDF Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.out }}
+          path: ${{ matrix.out }}
+          retention-days: 1
+
+  # ------------------------------------------------------------------
+  # STAGE 2: Consolidate Artifacts & Deploy to GitHub Pages
+  # ------------------------------------------------------------------
+  deploy-pages:
+    needs: build-pdfs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Staging Directory
+        run: mkdir -p _site
+
+      - name: Download All PDF Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: _site
+          merge-multiple: true
+
+      - name: Generate HTML Index Page
+        run: |
+          cd _site
+          cat << 'EOF' > index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Enterprise Linux Course Documentation</title>
+              <style>
+                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #333; }
+                  h1 { border-bottom: 2px solid #eaecef; padding-bottom: 10px; }
+                  ul { list-style-type: none; padding: 0; }
+                  li { margin: 12px 0; background: #f6f8fa; padding: 12px 16px; border-radius: 6px; border: 1px solid #e1e4e8; }
+                  a { color: #0366d6; text-decoration: none; font-weight: 600; }
+                  a:hover { text-decoration: underline; }
+              </style>
+          </head>
+          <body>
+              <h1>Enterprise Linux Training Modules</h1>
+              <p>Download or view the compiled PDF chapters below:</p>
+              <ul>
+          EOF
+
+          for pdf in *.pdf; do
+              if [ -f "$pdf" ]; then
+                  echo "        <li>📄 <a href=\"$pdf\" target=\"_blank\">$pdf</a></li>" >> index.html
+              fi
+          done
+
+          cat << 'EOF' >> index.html
+              </ul>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
