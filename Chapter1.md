@@ -28,7 +28,7 @@ In 1991, Linus Torvalds, a computer science student at the University of Helsink
 ```
 ## 1.2 Open Source Licensing and Governance
 ### Free and Open Source Software (FOSS)
-The term **Free Software** refers to liberty, not price. The Free Software Foundation (FSF) defines four fundamental freedoms for software users:
+The term **Free Software** refers to liberty for, not price. The Free Software Foundation (FSF) defines four fundamental freedoms for software users:
  1. **Freedom 0:** The freedom to run the program for any purpose.
  2. **Freedom 1:** The freedom to study how the program works and change it to suit your needs.
  3. **Freedom 2:** The freedom to redistribute copies to help others.
