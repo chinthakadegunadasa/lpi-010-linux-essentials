@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Enterprise Linux Technical Certification Exam Simulator
-Target OS: Debian 12 (Bookworm) Stable
-Description: Interactive terminal-based practice simulator for Enterprise Linux Administration.
+Target OS: Debian 13 (Trixie) Stable
+Description: Lightweight, interactive terminal-based exam simulator for Enterprise Linux Administration.
 """
 
 import sys
@@ -10,7 +10,7 @@ import os
 import random
 import time
 
-# Questions Bank: Chapters 1-6 Coverage
+# Questions Bank: Chapters 1-6 Coverage for Debian 13 Environment
 EXAM_BANK = [
     {
         "id": 1,
@@ -23,7 +23,7 @@ EXAM_BANK = [
             "Public Domain"
         ],
         "answer": 2,
-        "explanation": "Strong Copyleft licenses like the GNU GPLv2/v3 enforce that any modified code distributed publicly must also make its source code available under the same license terms."
+        "explanation": "Strong Copyleft licenses like the GNU GPLv2/v3 enforce that any modified code distributed publicly must also make its source code available under the exact same license terms."
     },
     {
         "id": 2,
@@ -36,7 +36,7 @@ EXAM_BANK = [
             "locate *.txt /tmp/backup/"
         ],
         "answer": 2,
-        "explanation": "The 'cp' utility copies files. Using the wildcard 'asterisk' (*.txt) matches all filenames ending in .txt."
+        "explanation": "The 'cp' utility copies files. Using the wildcard asterisk (*.txt) matches all filenames in the current working directory ending in .txt."
     },
     {
         "id": 3,
@@ -49,12 +49,12 @@ EXAM_BANK = [
             "command | error.log 2> /dev/null"
         ],
         "answer": 1,
-        "explanation": "'> /dev/null' redirects standard output (FD 1) to the bit bucket, while '2> error.log' routes standard error (FD 2) to the specified log file."
+        "explanation": "'> /dev/null' redirects standard output (FD 1) to the null device, while '2> error.log' routes standard error (FD 2) to the specified log file."
     },
     {
         "id": 4,
         "chapter": "Chapter 4: Operating System Architecture",
-        "question": "What is the Process ID (PID) assigned to the initial user-space process ('systemd') executed by the Linux kernel upon boot?",
+        "question": "What is the Process ID (PID) assigned to the initial user-space init process ('systemd') executed by the Linux kernel upon boot?",
         "options": [
             "PID 0",
             "PID 1",
@@ -62,7 +62,7 @@ EXAM_BANK = [
             "PID -1"
         ],
         "answer": 2,
-        "explanation": "PID 1 is reserved for the initial init system ('systemd') spawned by the kernel to manage system services and state initialization."
+        "explanation": "PID 1 is reserved for the system initialization daemon ('systemd') spawned by the kernel to manage service activation and state initialization."
     },
     {
         "id": 5,
@@ -75,20 +75,20 @@ EXAM_BANK = [
             "POSIX Default ACL"
         ],
         "answer": 2,
-        "explanation": "When applied to a directory, SGID (chmod g+s or 2770) ensures that all newly created files inherit the directory's group ownership rather than the primary group of the creating user."
+        "explanation": "When applied to a directory, SGID (chmod g+s or mode 2770) ensures that all newly created child files inherit the directory's group ownership."
     },
     {
         "id": 6,
         "chapter": "Chapter 6: Software Package Management",
-        "question": "Which low-level Debian packaging command lists all files installed onto the file system by a specific package?",
+        "question": "In Debian 13, where should third-party APT repository GPG keyrings be stored when pinning repositories with [signed-by=...]?",
         "options": [
-            "dpkg -S <file>",
-            "dpkg -L <package>",
-            "apt search <package>",
-            "dpkg -i <package>"
+            "/etc/apt/trusted.gpg.d/ or /etc/apt/keyrings/",
+            "/var/lib/dpkg/keyring/",
+            "/usr/bin/gpg-keys/",
+            "/etc/dpkg/keys.d/"
         ],
-        "answer": 2,
-        "explanation": "'dpkg -L <package>' queries the local package database to display every file deployed to the system by that package. ('dpkg -S' works in reverse)."
+        "answer": 1,
+        "explanation": "Debian 13 mandates storing third-party GPG keyrings in dedicated paths such as /etc/apt/keyrings/ or /etc/apt/trusted.gpg.d/ rather than using legacy global trusted keyrings."
     },
     {
         "id": 7,
@@ -101,12 +101,12 @@ EXAM_BANK = [
             "sed -d':' -f1,7 /etc/passwd"
         ],
         "answer": 1,
-        "explanation": "The 'cut' tool extracts specific columns or fields. '-d' defines the delimiter character and '-f' specifies target field indexes."
+        "explanation": "The 'cut' tool extracts specific columns. '-d' specifies the field delimiter character and '-f' designates target field position indexes."
     },
     {
         "id": 8,
         "chapter": "Chapter 5: Security and File Permissions",
-        "question": "What is the resulting default permissions mode for a newly created file if the system umask is set to 027?",
+        "question": "What is the resulting default permissions mode for a newly created regular file if the system umask is set to 027?",
         "options": [
             "750 (rwxr-x---)",
             "640 (rw-r-----)",
@@ -114,19 +114,19 @@ EXAM_BANK = [
             "777 (rwxrwxrwx)"
         ],
         "answer": 2,
-        "explanation": "Standard files start with a base mode of 666 (rw-rw-rw-). Applying umask 027 subtracts permissions (666 - 027 = 640 or rw-r-----)."
+        "explanation": "Standard files start with a base mode of 666 (rw-rw-rw-). Applying umask 027 masks out group write/exec and others all bits, yielding 640 (rw-r-----)."
     }
 ]
 
 def clear_screen():
-    """Clear terminal screen for clean presentation."""
+    """Clear terminal screen for consistent presentation."""
     os.system('clear' if os.name == 'posix' else 'cls')
 
 def display_banner():
-    """Print the exam header."""
+    """Print the simulator header."""
     print("=" * 72)
     print("      ENTERPRISE LINUX ADMINISTRATION CERTIFICATION EXAM SIMULATOR")
-    print("                   Debian 12 (Bookworm) Stable Edition")
+    print("                    Debian 13 (Trixie) Stable Edition")
     print("=" * 72)
     print()
 
@@ -142,7 +142,7 @@ def run_exam():
     input()
 
     questions = EXAM_BANK.copy()
-    random.shuffle(questions)  # Randomize question sequence
+    random.shuffle(questions)
     
     score = 0
     total_questions = len(questions)
@@ -163,7 +163,6 @@ def run_exam():
             
         print("\n" + "-" * 72)
         
-        # User input loop with validation
         while True:
             try:
                 choice = input("Select an answer [1-4] and press ENTER: ").strip()
@@ -191,7 +190,6 @@ def run_exam():
 
     elapsed_time = round(time.time() - start_time, 1)
     
-    # Render Exam Results
     clear_screen()
     display_banner()
     
@@ -200,7 +198,7 @@ def run_exam():
 
     print("EXAM PERFORMANCE SUMMARY")
     print("-" * 72)
-    print(f"Time Taken       : {elapsed_time} seconds")
+    print(f"Time Elapsed     : {elapsed_time} seconds")
     print(f"Total Questions  : {total_questions}")
     print(f"Correct Answers  : {score}")
     print(f"Final Score      : {percentage:.1f}%")
@@ -208,15 +206,14 @@ def run_exam():
 
     if passed:
         print("\n>>> FINAL VERDICT: PASS <<<")
-        print("Congratulations! You have demonstrated core technical competence in Enterprise Linux Administration.")
+        print("Congratulations! You have demonstrated core technical competence for Debian 13 Enterprise Systems.")
     else:
         print("\n>>> FINAL VERDICT: FAIL <<<")
-        print("Result below 75% threshold. Review the detailed chapter feedback below.")
+        print("Result below 75% threshold. Review the detailed feedback below.")
 
     print("\nPress ENTER to review detailed question feedback...")
     input()
 
-    # Detailed Question Review Loop
     clear_screen()
     display_banner()
     print("DETAILED QUESTION REVIEW & FEEDBACK")
