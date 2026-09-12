@@ -14,7 +14,7 @@ In 1991, Linus Torvalds, a computer science student at the University of Helsink
 │                 Applications & Shells                       │
 │             (Bash, Coreutils, Systemd, Apache)              │
 └──────────────────────────────┬──────────────────────────────┘
-                               │ System Calls (POSIX)
+                               │ System Calls (POSIX)b
 ┌──────────────────────────────▼──────────────────────────────┐
 │                    The Linux Kernel             xx                  │
 │   (Process Scheduler, Memory Management, Drivers, Networking)       │
