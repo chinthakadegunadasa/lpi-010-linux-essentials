@@ -1,4 +1,4 @@
-name: Compile Handbooks, Validate Simulator & Deploy to GitHub Pages
+name: Compile B5 Auto-Hyphenated PDFs & Deploy to Pages
 
 on:
   push:
@@ -17,9 +17,9 @@ concurrency:
 
 jobs:
   # ------------------------------------------------------------------
-  # STAGE 1: Parallel Matrix PDF Generation
+  # STAGE 1: Parallel Matrix B5 PDF Generation via OnlyOffice
   # ------------------------------------------------------------------
-  build-pdfs:
+  build-b5-pdfs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -42,39 +42,45 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Pandoc, LibreOffice & Hyphenation Engines
+      - name: Install Pandoc, OnlyOffice Desktop Editors & Hyphenation
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             pandoc \
-            libreoffice-writer \
-            libreoffice-java-common \
-            hyphen-en-us \
-            fonts-liberation \
             unzip \
-            zip
+            zip \
+            liberation-fonts \
+            hyphen-en-us
 
-      - name: Compile Markdown to Hyphenated PDF
+          # Install OnlyOffice Desktop Editors for Headless B5 Auto-Hyphenated Rendering
+          echo "deb https://download.onlyoffice.com/repo/debian squeeze main" | sudo tee /etc/apt/sources.list.d/onlyoffice.list
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CB2DE8E5
+          sudo apt-get update
+          sudo apt-get install -y onlyoffice-desktopeditors
+
+      - name: Convert to B5 ODT & Enable Auto-Hyphenation
         run: |
           SRC="${{ matrix.src }}"
           OUT="${{ matrix.out }}"
           
           if [ -f "$SRC" ]; then
-            echo "Processing $SRC -> $OUT..."
+            echo "Building B5 layout for $SRC..."
             
-            # 1. Convert Markdown source to intermediate ODT
-            pandoc "$SRC" -o output.odt
+            # 1. Convert Markdown to ODT with strict B5 page geometry and 20mm margins
+            pandoc "$SRC" -o temp.odt \
+              --variable=geometry:paperb5paper \
+              --variable=geometry:margin=20mm
             
-            # 2. Inject XML properties for dynamic word hyphenation
+            # 2. Inject OpenDocument auto-hyphenation properties into XML manifest
             mkdir odt_tmp
-            unzip -q output.odt -d odt_tmp
-            sed -i 's/<style:paragraph-properties/<style:paragraph-properties fo:hyphenate="true"/g' odt_tmp/styles.xml
-            sed -i 's/<style:paragraph-properties/<style:paragraph-properties fo:hyphenate="true"/g' odt_tmp/content.xml
-            (cd odt_tmp && zip -q -r ../hyphenated.odt *)
+            unzip -q temp.odt -d odt_tmp
+            sed -i 's/<style:paragraph-properties/<style:paragraph-properties fo:hyphenate="true" fo:hyphenation-remain-char-count="2" fo:hyphenation-push-char-count="2"/g' odt_tmp/styles.xml
+            sed -i 's/<style:paragraph-properties/<style:paragraph-properties fo:hyphenate="true" fo:hyphenation-remain-char-count="2" fo:hyphenation-push-char-count="2"/g' odt_tmp/content.xml
+            (cd odt_tmp && zip -q -r ../b5_hyphenated.odt *)
             
-            # 3. Render PDF via headless LibreOffice
-            libreoffice --headless --convert-to pdf hyphenated.odt --outdir .
-            mv hyphenated.pdf "$OUT"
+            # 3. Headless conversion to PDF using OnlyOffice Desktop Editors engine
+            desktopeditors --headless --all-formats-to=pdf b5_hyphenated.odt
+            mv b5_hyphenated.pdf "$OUT"
           else
             echo "Error: Source file $SRC not found!" && exit 1
           fi
@@ -100,20 +106,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Validate Python Syntax & Script Integrity
+      - name: Validate Python Syntax
         run: |
           if [ -f "exam_simulator.py" ]; then
             python3 -m py_compile exam_simulator.py
-            echo "exam_simulator.py compiled successfully with zero syntax errors."
-          else
-            echo "Warning: exam_simulator.py not found in repo root!"
           fi
 
   # ------------------------------------------------------------------
-  # STAGE 3: Consolidate Artifacts & Deploy to GitHub Pages
+  # STAGE 3: Deploy to GitHub Pages
   # ------------------------------------------------------------------
   deploy-pages:
-    needs: [build-pdfs, validate-simulator]
+    needs: [build-b5-pdfs, validate-simulator]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -135,7 +138,7 @@ jobs:
             chmod +x _site/exam_simulator.py
           fi
 
-      - name: Generate Index Page & Dashboard
+      - name: Generate Index Page
         run: |
           cd _site
           cat << 'EOF' > index.html
@@ -144,41 +147,33 @@ jobs:
           <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Enterprise Linux Training & Exam Portal</title>
+              <title>Enterprise Linux B5 Training Manuals</title>
               <style>
-                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; max-width: 850px; margin: 40px auto; padding: 0 20px; color: #24292e; }
+                  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #24292e; }
                   h1, h2 { border-bottom: 1px solid #e1e4e8; padding-bottom: 10px; }
                   ul { list-style-type: none; padding: 0; }
                   li { margin: 10px 0; background: #f6f8fa; padding: 12px 16px; border-radius: 6px; border: 1px solid #e1e4e8; display: flex; justify-content: space-between; align-items: center; }
                   a { color: #0366d6; text-decoration: none; font-weight: 600; }
                   a:hover { text-decoration: underline; }
-                  .code-block { background: #24292e; color: #f6f8fa; padding: 14px; border-radius: 6px; font-family: monospace; overflow-x: auto; }
-                  .btn { background-color: #2ea44f; color: white !important; padding: 6px 12px; border-radius: 6px; font-size: 14px; }
+                  .badge { background-color: #2ea44f; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
               </style>
           </head>
           <body>
-              <h1>Enterprise Linux Documentation & Certification Portal</h1>
-              
-              <h2>📘 Chapter Course Modules (PDF)</h2>
+              <h1>Enterprise Linux B5 Publishing Portal</h1>
+              <h2>📘 B5 Auto-Hyphenated Handbooks (OnlyOffice Engine)</h2>
               <ul>
           EOF
 
           for pdf in *.pdf; do
               if [ -f "$pdf" ]; then
-                  echo "        <li><span>📄 <strong>$pdf</strong></span> <a href=\"$pdf\" target=\"_blank\">Download PDF</a></li>" >> index.html
+                  echo "        <li><span>📄 <strong>$pdf</strong> <span class=\"badge\">B5 Format</span></span> <a href=\"$pdf\" target=\"_blank\">Download PDF</a></li>" >> index.html
               fi
           done
 
           cat << 'EOF' >> index.html
               </ul>
-
               <h2>🧪 Terminal Hands-On Exam Simulator</h2>
-              <p>Run the practice exam locally on Debian or any terminal using Python 3:</p>
-              <div class="code-block">
-                  curl -sSL -O https://$(echo $GITHUB_REPOSITORY | cut -d'/' -f1).github.io/$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)/exam_simulator.py<br>
-                  python3 exam_simulator.py
-              </div>
-              <p><a href="exam_simulator.py" class="btn" download>Download exam_simulator.py directly</a></p>
+              <p><a href="exam_simulator.py" download>Download exam_simulator.py</a></p>
           </body>
           </html>
           EOF
@@ -191,3 +186,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        
